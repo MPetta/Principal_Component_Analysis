@@ -1,0 +1,254 @@
+---
+title: "Clustering Methods and Principal Component Analysis"
+author: "Marc Petta"
+date: ""
+output: html_document
+---
+
+Looking at a data set of different wines and their characteristics the following will assess both hierarchical and non-hierarchical clustering methods. The results of which will be used along with principal component analysis. 
+
+```{r, warning=FALSE, message=FALSE}
+# set up
+library(ggplot2)
+library(DataExplorer)
+library(ggbiplot)
+library(factoextra)
+
+# read data
+wine <- read.csv(file = 'wine.csv')
+# assign data frame and remove first column index
+attach(wine)
+x = data.frame(wine[,c(-1)])
+
+```
+
+### Examine Data 
+Get an overview of the dataframe dimensions and check for missing values
+```{r, echo=FALSE}
+
+#plot_intro(wine)
+#plot_str(wine,type = "d")
+plot_intro(
+  x,
+  geom_label_args = list(),
+  title = NULL,
+  ggtheme = theme_gray(),
+  theme_config = list("text" = element_text(color = "gray58", size = 9))
+)
+
+```
+
+Plot quantiles for each variable and examine distribution
+```{r, echo=FALSE, fig.height=10}
+# plot quantiles set grid and background colors
+plot_qq(
+  x,
+  ggtheme = theme_minimal(),
+  theme_config = list("text" = element_text(color = "gray58"),
+                      "panel.background" = element_rect(fill = "ivory", colour = "lightsteelblue", size = 2, linetype = "solid"),
+                      "panel.grid.major" = element_line(size = 0.5, linetype = 'solid', colour = "ivory2"),
+                      "panel.grid.minor" = element_line(size = 0.25, linetype = 'solid', colour = "ivory2")),
+  nrow = 5L,
+  ncol = 3L)
+
+```
+
+### Transformations
+Standardize the numeric variables in wine and store the results in x.scale.  
+```{r}
+x.scale = scale(x)
+
+```
+
+
+## Clustering Methods
+### Hierarchical Modeling
+##### Create Dendrograms and Assess Linkages
+Lets examine our method for assessing linkage. Here we fit hierarchical models using Euclidean distance and complete, single, and average linkage producing a dendrogram of all the clusters for each.
+
+```{r}
+# set euclidean distance
+dist.x.scale = dist(x.scale, method="euclidean")
+# set linkage methods to assess
+hc.complete = hclust(dist.x.scale,method="complete")
+hc.single = hclust(dist.x.scale,method="single")
+hc.average = hclust(dist.x.scale,method="average")
+# set up and print plots
+par(mfrow=c(1,1))
+
+plot(hc.single,cex=0.5,labels=F)
+abline(h=c(5.5, 7.5, .4),col=c("green","purple","red","blue"),lty=2)
+
+plot(hc.average,cex=0.5,labels=F)
+abline(h=c(5.5, 7.5, 10),col=c("green","purple","red","blue"),lty=2)
+
+plot(hc.complete,cex=0.5,labels=F)
+abline(h=c(5.5, 7.5, 9.5),col=c("green","purple","red","blue"),lty=2)
+
+
+```
+
+These dendrogram illustrate the three examined method for clustering. We can see that Complete method produces the most even amount of clusters. The second most appropriate would be the Average method as the groupings in its dendogram seem to have the most even spacing after the Complete method. Finally, the Single method shows the least appropriate spacing among the groupings. We can tell this because its groupings all fall under a small number of clusters making the dendrogram appear skewed indicating it is not the appropriate method for clustering. 
+
+Using Complete linkage, lets take a look at some clusters we can find in wine.
+
+```{r}
+# plotting clusters
+# set colors and plot dimensions
+colused = c("turquoise3", "red", "black" )
+par(mfrow=c(1,3))
+# lets look at 3 clusters
+nclust= 3
+memb = cutree(hc.complete,k=nclust)
+# set up and print plots
+par(mfrow=c(1,3))
+plot(Alcohol, Malic ,pch=16,main=paste(nclust," clusters joined by complete linkage"))
+for (i in 1:9)  points(Alcohol[memb == i],Malic[memb == i],pch=16,col=colused[i])
+
+plot(Alcohol, Alcalinity ,pch=16,main=paste(nclust," clusters joined by complete linkage"))
+for (i in 1:9)  points(Alcohol[memb == i],Alcalinity[memb == i],pch=16,col=colused[i])
+
+plot(Malic, Alcalinity ,pch=16,main=paste(nclust," clusters joined by complete linkage"))
+for (i in 1:9)  points(Malic[memb == i],Alcalinity[memb == i],pch=16,col=colused[i])
+
+```
+
+We find some fairly distinct clusters. To assess the decision to use Complete linkage, we can take a look at some plots to illustrate clusters derived from the alternative methods. Here we look at Single linkage. 
+
+```{r}
+# plotting clusters
+# set colors and plot dimensions
+colused = c("turquoise3", "red", "black")
+par(mfrow=c(1,3))
+# look for 3 clusters
+nclust=3
+memb = cutree(hc.single,k=nclust)
+# set up and print
+par(mfrow=c(1,3))
+plot(Alcohol, Malic ,pch=16,main=paste(nclust," clusters joined by single linkage"))
+for (i in 1:9)  points(Alcohol[memb == i],Malic[memb == i],pch=16,col=colused[i])
+
+plot(Alcohol, Alcalinity ,pch=16,main=paste(nclust," clusters joined by single linkage"))
+for (i in 1:9)  points(Alcohol[memb == i],Alcalinity[memb == i],pch=16,col=colused[i])
+
+plot(Malic, Alcalinity ,pch=16,main=paste(nclust," clusters joined by single linkage"))
+for (i in 1:9)  points(Malic[memb == i],Alcalinity[memb == i],pch=16,col=colused[i])
+```
+
+This would confirm our initial determination of linkage type. Lets now make a final plot for the method for comparison later.
+
+```{r}
+
+# plotting clusters
+par(mfrow=c(1,1))
+# lets look at 3 clusters
+nclust= 3
+# set colors and plot dimensions
+colused = c("turquoise3", "red", "black" )
+memb = cutree(hc.complete,k=nclust)
+# set up and print plots
+# plot(Dilution, Alcohol ,pch=16,main=paste(nclust," clusters joined by complete linkage"))
+# for (i in 1:3)  points(Dilution[memb == i], Alcohol[memb == i],pch=16,col=colused[i])
+
+plot(Alcohol, Dilution,pch=16,main=paste(nclust,"  clusters joined by complete linkage"))
+for (i in 1:9) points(Alcohol[memb == i],Dilution[memb == i],pch=16,col=colused[i])
+
+```
+
+### Non-hierarchical Modeling
+##### k-Means Clustering
+We can examine our method further by considering non-hierarchical clustering to split the data. Here will will use K-means clustering to investigate the clustering memberships across various initial splits. 
+
+```{r}
+set.seed(12)
+# nonhierarchical selection
+nclust=3
+membfull3 = kmeans(x.scale,nclust)$cluster
+finalnonhierarchicalclusters3 = membfull3
+
+# # plotting clusters
+colused = c("turquoise3", "red", "black")
+plot(Alcohol, Dilution,pch=16,main=paste(nclust,"  k-Means clusters joined by complete linkage"))
+for (i in 1:9) points(Alcohol[membfull3 == i],Dilution[membfull3 == i],pch=16,col=colused[i])
+
+```
+
+There appears to be some distinct seperation here. Lets now compare results for hierarchical clustering with Complete linkage to assess the cluster membership of K-means clustering.
+
+```{r}
+
+# hierarchical selection
+nclust=3
+membfull = cutree(hc.complete,k=nclust)
+finalhierarchicalclusters = membfull
+# true diagnoses
+addmargins(table(finalhierarchicalclusters,finalnonhierarchicalclusters3))
+
+```
+
+Looks like the non-hierarchical cluster method performed slightly better. Lets now assign those clusters to the dataframe.
+
+```{r}
+# assign cluster id to objects for comparison with pca
+x2 = x
+x2$clusterID = as.factor(membfull)
+
+x3 = x
+x3$clusterID = as.factor(finalnonhierarchicalclusters3) 
+
+```
+
+## Principal Component Analysis
+We wish to use Principal Component Analysis to identify which components are most meaningful for describing this data set. 
+
+```{r}
+# include scaling due to widely varied magnitudes
+pc.info = prcomp(x,scale=T)
+#pc.info$rotation[]  #loadings
+summary(pc.info)
+
+```
+
+We get 13 principal components that each explain a percentage of the total variation in the data set. Principal component PC1 explains about ~36% of the variability while PC2 explains about ~19%. We can illustrate each principle component in the following.
+
+```{r}
+
+fviz_eig(pc.info)
+
+```
+
+Lets see the variables association on our scatter plot
+
+```{r}
+
+ggbiplot(pc.info)
+
+```
+
+This plot can be improved a bit by adding color labels to our clusters. Lets begin with the Complete linkage cluster method and plot its findings along with the pca.
+
+```{r}
+
+ggbiplot(pc.info, obs.scale = 1, var.scale = 1, ellipse=TRUE, groups=x2$clusterID) +
+  scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top') +
+  ggtitle("PCA with Complete Linkage Clusters")
+
+
+```
+
+The plot reveals PC1 and PC2 were able to determine a very distinct cluster characterized by high values of Malic, Nonflavanoids, and Alkalinity. The other two clusters can be seen as partially defined as well with some distinct characteristics of their own. Not bad for our two pc which cumulatively explain about ~55% of the variation in the data set. Lets see how the k-Means clustering method performed here. 
+
+
+```{r}
+
+ggbiplot(pc.info, obs.scale = 1, var.scale = 1, ellipse=TRUE, groups=x3$clusterID) +
+  scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top') +
+  ggtitle("PCA with k-Means Clusters")
+
+
+```
+
+As illustrated in the plots in the previous section, we find even more distinct cluster assignments when using the k-Means method. All three clusters here are now clearly defined. This study would recomend the use of the non-hierarchical k-Means clustering method for use with this data set. 
+
